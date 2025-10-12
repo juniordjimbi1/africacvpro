@@ -1,0 +1,16 @@
+{
+  "name": "africacvpro-monorepo",
+  "version": "1.0.0",
+  "description": "AfricaCV Pro - Monorepo",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:client\" \"npm run dev:admin\" \"npm run dev:server\"",
+    "dev:client": "npm start --prefix client",
+    "dev:admin": "npm start --prefix admin",
+    "dev:server": "npm run dev --prefix server",
+    "install:all": "npm install && npm install --prefix client && npm install --prefix admin && npm install --prefix server",
+    "db:seed": "npm run seed --prefix server"
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  }
+}

@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  resumes Resume[]
+  letters Letter[]
+  orders  Order[]
+  audits  AuditLog[]
+
+  @@map("users")
+}
+
+model Template {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  category    String
+  tokensJson  String // Configuration typographique
+  previewUrl  String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  resumes Resume[]
+
+  @@map("templates")
+}
+
+model Resume {
+  id             String   @id @default(cuid())
+  userId         String
+  templateId     String
+  title          String
+  dataJson       String // Données du CV en JSON
+  photoUrl       String?
+  exportUnlocked Boolean  @default(false) // Déblocage après paiement
+  locale         String   @default("fr-FR")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template Template @relation(fields: [templateId], references: [id])
+  orders   Order[]
+  files    File[]
+  Letter   Letter[]
+
+  @@map("resumes")
+}
+
+model Letter {
+  id             String   @id @default(cuid())
+  userId         String
+  resumeId       String?
+  title          String
+  content        String
+  optionsJson    String // Options IA, ton, etc.
+  exportUnlocked Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resume Resume? @relation(fields: [resumeId], references: [id])
+  orders Order[]
+
+  @@map("letters")
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  userId      String
+  resumeId    String?
+  letterId    String?
+  type        OrderType
+  amount      Int // En centimes (5000 = 50.00 FCFA)
+  currency    String      @default("XOF")
+  status      OrderStatus @default(AWAITING_PAYMENT_PROOF)
+  channel     String      @default("whatsapp")
+  whatsappNum String? // Numéro WhatsApp du client
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resume   Resume?    @relation(fields: [resumeId], references: [id])
+  letter   Letter?    @relation(fields: [letterId], references: [id])
+  files    File[]
+  Download Download[]
+
+  @@map("orders")
+}
+
+model File {
+  id        String   @id @default(cuid())
+  orderId   String?
+  resumeId  String?
+  kind      FileKind
+  path      String // Chemin du fichier
+  sha256    String? // Hash pour vérification
+  createdAt DateTime @default(now())
+
+  order  Order?  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  resume Resume? @relation(fields: [resumeId], references: [id])
+
+  @@map("files")
+}
+
+model Download {
+  id        String   @id @default(cuid())
+  orderId   String
+  fileType  String
+  signedUrl String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("downloads")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String? // User qui a fait l'action
+  action    String
+  metaJson  String? // Métadonnées en JSON
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [actorId], references: [id])
+
+  @@map("audit_logs")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum OrderType {
+  AUTO
+  IA
+  HUMAN
+}
+
+enum OrderStatus {
+  AWAITING_PAYMENT_PROOF
+  PAID_CONFIRMED
+  DELIVERED
+  REJECTED
+  EXPIRED
+}
+
+enum FileKind {
+  PDF
+  DOCX
+  PHOTO
+  OTHER
+}

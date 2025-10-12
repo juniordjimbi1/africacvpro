@@ -1,95 +1,159 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { Header } from './layouts/Header';
+import { Footer } from './layouts/Footer';
+import { Toolbar } from './layouts/Toolbar';
+import { HomePage } from './pages/HomePage';
+import { TemplatesPage } from './pages/TemplatesPage';
+import { PricingPage } from './pages/PricingPage';
+import { LoginForm } from './components/auth/LoginForm';
+import { RegisterForm } from './components/auth/RegisterForm';
+import { EditorPage } from './pages/EditorPage';
+
+const PAGES = {
+  "Accueil": <HomePage />,
+  "Modèles": <TemplatesPage />,
+  "Tarifs": <PricingPage />,
+  "Comment ça marche": <div className="py-8"><h2 className="text-2xl font-bold text-slate-900">Comment ça marche - En construction</h2></div>,
+  "Éditeur CV": <EditorPage />, // CHANGÉ ICI
+  "Lettre": <div className="py-8"><h2 className="text-2xl font-bold text-slate-900">Lettre de motivation - En construction</h2></div>,
+  "Paiement & Livraison": <div className="py-8"><h2 className="text-2xl font-bold text-slate-900">Paiement & Livraison - En construction</h2></div>,
+  "Tableau de bord": <div className="py-8"><h2 className="text-2xl font-bold text-slate-900">Tableau de bord - En construction</h2></div>,
+  "Aide / FAQ": <div className="py-8"><h2 className="text-2xl font-bold text-slate-900">Aide / FAQ - En construction</h2></div>,
+  "À propos": <div className="py-8"><h2 className="text-2xl font-bold text-slate-900">À propos - En construction</h2></div>,
+  "Juridique": <div className="py-8"><h2 className="text-2xl font-bold text-slate-900">Juridique - En construction</h2></div>,
+};
+
+function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
+  const [mode, setMode] = useState(initialMode);
+  const { user } = useAuth();
+
+  // Fermer automatiquement le modal quand l'utilisateur est connecté
+  useEffect(() => {
+    if (isOpen && user) {
+      const timer = setTimeout(() => {
+        onClose();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [user, isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-white rounded-xl max-w-md w-full mx-4 relative"
+      >
+        {/* Bouton de fermeture en haut à droite - PROPRE maintenant */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors z-10"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        {mode === 'login' ? (
+          <LoginForm 
+            onSwitchToRegister={() => setMode('register')}
+            onSuccess={onClose}
+          />
+        ) : (
+          <RegisterForm 
+            onSwitchToLogin={() => setMode('login')}
+            onSuccess={onClose}
+          />
+        )}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function AppContent() {
+  const [currentPage, setCurrentPage] = useState("Accueil");
+  const [authModal, setAuthModal] = useState({ isOpen: false, mode: 'login' });
+  const { user, logout } = useAuth();
+
+  const openAuthModal = (mode = 'login') => {
+    setAuthModal({ isOpen: true, mode });
+  };
+
+  const closeAuthModal = () => {
+    setAuthModal({ isOpen: false, mode: 'login' });
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-700">
+      <Header 
+        user={user} 
+        onLogin={() => openAuthModal('login')}
+        onRegister={() => openAuthModal('register')}
+        onLogout={logout}
+      />
+      <Toolbar currentPage={currentPage} onPageChange={setCurrentPage} />
+      
+      <main className="mx-auto max-w-7xl px-4">
+        <div className="py-4">
+          <motion.h2 
+            className="text-lg font-semibold text-slate-500 mb-2"
+            key={currentPage}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            Wireframe: <span className="text-primary-600">{currentPage}</span>
+            {user && (
+              <span className="ml-4 text-sm text-slate-400">
+                • Connecté en tant que {user.email}
+              </span>
+            )}
+          </motion.h2>
+          
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentPage}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              {PAGES[currentPage]}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </main>
+
+      <AnimatePresence>
+        {authModal.isOpen && (
+          <AuthModal 
+            isOpen={authModal.isOpen}
+            onClose={closeAuthModal}
+            initialMode={authModal.mode}
+          />
+        )}
+      </AnimatePresence>
+
+      <Footer />
+    </div>
+  );
+}
 
 function App() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="container mx-auto px-4 py-8">
-        {/* En-tête test */}
-        <header className="text-center mb-12">
-          <div className="w-20 h-20 bg-primary-600 rounded-full mx-auto mb-4 flex items-center justify-center">
-            <span className="text-white font-bold text-xl">ACV</span>
-          </div>
-          <h1 className="text-4xl font-bold text-slate-900 mb-4">
-            AfricaCV <span className="text-primary-600">Pro</span>
-          </h1>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Créez un CV professionnel qui vous représente vraiment. 
-            Optimisé ATS, livraison via WhatsApp, et accompagnement IA.
-          </p>
-        </header>
-
-        {/* Grille de test Tailwind */}
-        <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-          {/* Carte Automatique */}
-          <div className="card p-6 text-center">
-            <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-              <span className="text-primary-600 font-semibold">A</span>
-            </div>
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">Automatique</h3>
-            <p className="text-slate-600 mb-4 text-sm">
-              CV professionnel généré automatiquement à partir de vos informations
-            </p>
-            <div className="text-2xl font-bold text-slate-900 mb-4">5 000 FCFA</div>
-            <button className="btn-primary w-full">
-              Commencer
-            </button>
-          </div>
-
-          {/* Carte IA (Best-seller) */}
-          <div className="card p-6 text-center relative border-2 border-primary-200 bg-gradient-to-b from-white to-primary-50">
-            <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-              <span className="bg-primary-600 text-white text-xs font-semibold px-3 py-1 rounded-full">
-                BEST-SELLER
-              </span>
-            </div>
-            <div className="w-12 h-12 bg-primary-600 rounded-lg flex items-center justify-center mx-auto mb-4">
-              <span className="text-white font-semibold">IA</span>
-            </div>
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">Optimisé IA</h3>
-            <p className="text-slate-600 mb-4 text-sm">
-              Optimisation intelligente par IA pour chaque offre d'emploi
-            </p>
-            <div className="text-2xl font-bold text-slate-900 mb-4">12 000 FCFA</div>
-            <button className="btn-primary w-full bg-primary-600 hover:bg-primary-700">
-              Optimiser mon CV
-            </button>
-          </div>
-
-          {/* Carte Expert */}
-          <div className="card p-6 text-center">
-            <div className="w-12 h-12 bg-success-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-              <span className="text-success-600 font-semibold">E</span>
-            </div>
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">Expert Humain</h3>
-            <p className="text-slate-600 mb-4 text-sm">
-              Accompagnement personnalisé par un expert en recrutement
-            </p>
-            <div className="text-2xl font-bold text-slate-900 mb-4">25 000 FCFA</div>
-            <button className="btn-primary w-full bg-success-600 hover:bg-success-700">
-              Expertiser
-            </button>
-          </div>
-        </div>
-
-        {/* Indicateurs de test */}
-        <div className="mt-12 text-center">
-          <div className="inline-flex items-center gap-6 text-sm text-slate-500">
-            <span className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-success-500 rounded-full"></div>
-              Compatible ATS
-            </span>
-            <span className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-success-500 rounded-full"></div>
-              Paiement après validation
-            </span>
-            <span className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-success-500 rounded-full"></div>
-              Livraison WhatsApp
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
