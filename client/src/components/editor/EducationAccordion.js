@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function EducationAccordion({ data, isExpanded, onToggle, onAddItem, onUpdateItem, onRemoveItem, dateFormat }) {
   const [showForm, setShowForm] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
-  const [formData, setFormData] = useState({
+  const [editingItem, setEditingItem] = useState(null); // {id,...} si edition
+  const [draftId, setDraftId] = useState(null); // id du brouillon créé à la 1re frappe
+
+  const initialForm = {
     degree: '',
     school: '',
     field: '',
@@ -17,61 +19,93 @@ export function EducationAccordion({ data, isExpanded, onToggle, onAddItem, onUp
     endYear: '',
     current: false,
     description: ''
-  });
+  };
+  const [formData, setFormData] = useState(initialForm);
+
+  // ⬇️ focus 1er champ quand formulaire ouvert
+  const firstInputRef = useRef(null);
+  useEffect(() => {
+    if (showForm && firstInputRef.current) {
+      const t = setTimeout(() => firstInputRef.current?.focus(), 120);
+      return () => clearTimeout(t);
+    }
+  }, [showForm]);
 
   const months = [
-    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+    'Janvier','Février','Mars','Avril','Mai','Juin',
+    'Juillet','Août','Septembre','Octobre','Novembre','Décembre'
   ];
-
   const years = Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i);
   const days = Array.from({ length: 31 }, (_, i) => i + 1);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    const startDate = formData.startYear && formData.startMonth && formData.startDay 
-      ? `${formData.startYear}-${String(formData.startMonth).padStart(2, '0')}-${String(formData.startDay).padStart(2, '0')}`
+  const computeDates = (fd) => {
+    const startDate = fd.startYear && fd.startMonth && fd.startDay
+      ? `${fd.startYear}-${String(fd.startMonth).padStart(2,'0')}-${String(fd.startDay).padStart(2,'0')}`
       : '';
-    
-    const endDate = formData.current || !formData.endYear ? '' 
-      : `${formData.endYear}-${String(formData.endMonth).padStart(2, '0')}-${String(formData.endDay).padStart(2, '0')}`;
+    const endDateRaw = fd.endYear && fd.endMonth && fd.endDay
+      ? `${fd.endYear}-${String(fd.endMonth).padStart(2,'0')}-${String(fd.endDay).padStart(2,'0')}`
+      : '';
+    const endDate = fd.current ? '' : endDateRaw;
+    return { startDate, endDate };
+  };
 
-    const itemData = {
-      ...formData,
+  const ensureDraft = (nextFormData) => {
+    // si on édite un item existant, on renvoie son id
+    if (editingItem?.id) return editingItem.id;
+    // sinon, créer un brouillon une seule fois
+    if (draftId) return draftId;
+    const id = Date.now() + Math.random();
+    const { startDate, endDate } = computeDates(nextFormData);
+    onAddItem({
+      id,
+      degree: nextFormData.degree || '',
+      school: nextFormData.school || '',
+      field: nextFormData.field || '',
+      city: nextFormData.city || '',
       startDate,
-      endDate: formData.current ? '' : endDate
-    };
+      endDate,
+      description: nextFormData.description || ''
+    });
+    setDraftId(id);
+    setEditingItem({ id });
+    return id;
+  };
 
-    if (editingItem) {
-      onUpdateItem(editingItem.id, itemData);
-    } else {
-      onAddItem(itemData);
-    }
-    
+  const liveUpdate = (partial) => {
+    const next = { ...formData, ...partial };
+    setFormData(next);
+    const id = ensureDraft(next);
+    const { startDate, endDate } = computeDates(next);
+    onUpdateItem(id, {
+      degree: next.degree || '',
+      school: next.school || '',
+      field: next.field || '',
+      city: next.city || '',
+      startDate,
+      endDate,
+      description: next.description || ''
+    });
+  };
+
+  const resetForm = () => {
     setShowForm(false);
     setEditingItem(null);
-    setFormData({
-      degree: '',
-      school: '',
-      field: '',
-      city: '',
-      startDay: '',
-      startMonth: '',
-      startYear: '',
-      endDay: '',
-      endMonth: '',
-      endYear: '',
-      current: false,
-      description: ''
-    });
+    setDraftId(null);
+    setFormData(initialForm);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    // Rien d’autre à faire : tout est déjà dans le state parent (live).
+    resetForm();
   };
 
   const startEdit = (item) => {
     const startParts = item.startDate ? item.startDate.split('-') : ['', '', ''];
     const endParts = item.endDate ? item.endDate.split('-') : ['', '', ''];
-    
     setEditingItem(item);
+    setDraftId(item.id);
+    setShowForm(true);
     setFormData({
       degree: item.degree || '',
       school: item.school || '',
@@ -86,7 +120,19 @@ export function EducationAccordion({ data, isExpanded, onToggle, onAddItem, onUp
       current: !item.endDate && !!item.startDate,
       description: item.description || ''
     });
+  };
+
+  const removeSection = () => {
+    // supprime tous les items existants
+    [...data].forEach(it => onRemoveItem(it.id));
+    resetForm();
+  };
+
+  const startNew = () => {
     setShowForm(true);
+    setEditingItem(null);
+    setDraftId(null);
+    setFormData(initialForm);
   };
 
   return (
@@ -118,18 +164,28 @@ export function EducationAccordion({ data, isExpanded, onToggle, onAddItem, onUp
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="px-6 pb-6 border-t border-slate-200">
-              {/* Bouton d'ajout */}
-              <div className="flex justify-between items-center py-4">
-                <h4 className="font-medium text-slate-900">Formations</h4>
+            <div className="px-6 py-4">
+              {/* Actions haut de section (ajout / suppression section) */}
+              <div className="flex items-center justify-between mb-4">
                 <motion.button
-                  onClick={() => setShowForm(!showForm)}
-                  className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg transition-colors"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  type="button"
+                  onClick={startNew}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 transition-colors"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   <span>+</span>
                   <span>Ajouter une formation</span>
+                </motion.button>
+
+                <motion.button
+                  type="button"
+                  onClick={removeSection}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 transition-colors"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Supprimer la section
                 </motion.button>
               </div>
 
@@ -143,58 +199,49 @@ export function EducationAccordion({ data, isExpanded, onToggle, onAddItem, onUp
                   <h4 className="font-semibold text-slate-900 mb-4">
                     {editingItem ? 'Modifier la formation' : 'Nouvelle formation'}
                   </h4>
-                  
+
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                          Diplôme
-                        </label>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Diplôme</label>
                         <input
+                          ref={firstInputRef}
                           type="text"
                           value={formData.degree}
-                          onChange={(e) => setFormData({ ...formData, degree: e.target.value })}
+                          onChange={(e) => liveUpdate({ degree: e.target.value })}
                           className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                           placeholder="Ex: Master en Informatique"
                         />
                       </div>
-                      
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                          Établissement
-                        </label>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Domaine</label>
                         <input
                           type="text"
-                          value={formData.school}
-                          onChange={(e) => setFormData({ ...formData, school: e.target.value })}
+                          value={formData.field}
+                          onChange={(e) => liveUpdate({ field: e.target.value })}
                           className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                          placeholder="Ex: Université Paris-Saclay"
+                          placeholder="Ex: Systèmes d'information"
                         />
                       </div>
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                          Domaine d'étude
-                        </label>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Établissement</label>
                         <input
                           type="text"
-                          value={formData.field}
-                          onChange={(e) => setFormData({ ...formData, field: e.target.value })}
+                          value={formData.school}
+                          onChange={(e) => liveUpdate({ school: e.target.value })}
                           className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                          placeholder="Ex: Informatique, Marketing..."
+                          placeholder="Ex: Université Paris-Saclay"
                         />
                       </div>
-                      
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                          Ville
-                        </label>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Ville</label>
                         <input
                           type="text"
                           value={formData.city}
-                          onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                          onChange={(e) => liveUpdate({ city: e.target.value })}
                           className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                           placeholder="Ex: Paris"
                         />
@@ -203,115 +250,88 @@ export function EducationAccordion({ data, isExpanded, onToggle, onAddItem, onUp
 
                     {/* Date de début */}
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Date de début
-                      </label>
-                      <div className="grid grid-cols-3 gap-3">
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Date de début</label>
+                      <div className="flex items-center gap-2">
                         <select
                           value={formData.startDay}
-                          onChange={(e) => setFormData({ ...formData, startDay: e.target.value })}
+                          onChange={(e) => liveUpdate({ startDay: e.target.value })}
                           className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                         >
                           <option value="">Jour</option>
-                          {days.map(day => (
-                            <option key={day} value={day}>{day}</option>
-                          ))}
+                          {days.map(d => <option key={d} value={d}>{d}</option>)}
                         </select>
                         <select
                           value={formData.startMonth}
-                          onChange={(e) => setFormData({ ...formData, startMonth: e.target.value })}
+                          onChange={(e) => liveUpdate({ startMonth: e.target.value })}
                           className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                         >
                           <option value="">Mois</option>
-                          {months.map((month, index) => (
-                            <option key={month} value={index + 1}>{month}</option>
-                          ))}
+                          {months.map((m, i) => <option key={m} value={i+1}>{m}</option>)}
                         </select>
                         <select
                           value={formData.startYear}
-                          onChange={(e) => setFormData({ ...formData, startYear: e.target.value })}
+                          onChange={(e) => liveUpdate({ startYear: e.target.value })}
                           className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                         >
                           <option value="">Année</option>
-                          {years.map(year => (
-                            <option key={year} value={year}>{year}</option>
-                          ))}
+                          {years.map(y => <option key={y} value={y}>{y}</option>)}
                         </select>
                       </div>
                     </div>
 
                     {/* Date de fin */}
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Date de fin
-                      </label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Date de fin</label>
                       <div className="space-y-3">
-                        <div className="flex items-center gap-3">
+                        <label className="inline-flex items-center gap-2">
                           <input
                             type="checkbox"
-                            id="currentEducation"
                             checked={formData.current}
-                            onChange={(e) => setFormData({ 
-                              ...formData, 
-                              current: e.target.checked,
-                              endDay: '',
-                              endMonth: '',
-                              endYear: ''
-                            })}
-                            className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+                            onChange={(e) => liveUpdate({ current: e.target.checked })}
                           />
-                          <label htmlFor="currentEducation" className="text-sm text-slate-700">
-                            Formation en cours
-                          </label>
-                        </div>
-                        
+                          <span>En cours</span>
+                        </label>
+
                         {!formData.current && (
-                          <div className="grid grid-cols-3 gap-3">
+                          <div className="flex items-center gap-2">
                             <select
                               value={formData.endDay}
-                              onChange={(e) => setFormData({ ...formData, endDay: e.target.value })}
+                              onChange={(e) => liveUpdate({ endDay: e.target.value })}
                               className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                             >
                               <option value="">Jour</option>
-                              {days.map(day => (
-                                <option key={day} value={day}>{day}</option>
-                              ))}
+                              {days.map(d => <option key={d} value={d}>{d}</option>)}
                             </select>
                             <select
                               value={formData.endMonth}
-                              onChange={(e) => setFormData({ ...formData, endMonth: e.target.value })}
+                              onChange={(e) => liveUpdate({ endMonth: e.target.value })}
                               className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                             >
                               <option value="">Mois</option>
-                              {months.map((month, index) => (
-                                <option key={month} value={index + 1}>{month}</option>
-                              ))}
+                              {months.map((m, i) => <option key={m} value={i+1}>{m}</option>)}
                             </select>
                             <select
                               value={formData.endYear}
-                              onChange={(e) => setFormData({ ...formData, endYear: e.target.value })}
+                              onChange={(e) => liveUpdate({ endYear: e.target.value })}
                               className="px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                             >
                               <option value="">Année</option>
-                              {years.map(year => (
-                                <option key={year} value={year}>{year}</option>
-                              ))}
+                              {years.map(y => <option key={y} value={y}>{y}</option>)}
                             </select>
                           </div>
                         )}
                       </div>
                     </div>
 
+                    {/* Description */}
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Description
-                      </label>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Description</label>
                       <textarea
                         value={formData.description}
-                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        onChange={(e) => liveUpdate({ description: e.target.value })}
                         rows={3}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-                        placeholder="Décrivez votre formation, les matières principales, les projets..."
+                        placeholder="Matières, projets, distinctions… (une ligne = une puce dans l’aperçu)"
                       />
                     </div>
 
@@ -322,14 +342,11 @@ export function EducationAccordion({ data, isExpanded, onToggle, onAddItem, onUp
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                       >
-                        {editingItem ? 'Modifier' : 'Ajouter'}
+                        {editingItem ? 'Terminer' : 'Ajouter'}
                       </motion.button>
                       <motion.button
                         type="button"
-                        onClick={() => {
-                          setShowForm(false);
-                          setEditingItem(null);
-                        }}
+                        onClick={resetForm}
                         className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg transition-colors"
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
@@ -342,45 +359,52 @@ export function EducationAccordion({ data, isExpanded, onToggle, onAddItem, onUp
               )}
 
               {/* Liste des formations */}
-              <div className="space-y-4">
-                {data.map((item) => (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white border border-slate-200 rounded-lg p-4"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-slate-900">{item.degree}</h4>
-                        <p className="text-slate-700">{item.school}</p>
-                        {item.field && <p className="text-slate-600">{item.field}</p>}
-                        {item.city && <p className="text-slate-500">{item.city}</p>}
-                        <p className="text-sm text-slate-500 mt-1">
-                          {item.startDate} {item.endDate ? `- ${item.endDate}` : '- En cours'}
-                        </p>
-                        {item.description && (
-                          <p className="text-slate-600 mt-2">{item.description}</p>
-                        )}
+              <div className="space-y-3">
+                {data.map(item => (
+                  <div key={item.id} className="p-3 border border-slate-200 rounded-lg">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="font-semibold text-slate-900">
+                          {item.degree}{item.field ? ` — ${item.field}` : ''}
+                        </div>
+                        <div className="text-sm text-slate-600">{item.school}{item.city ? ` • ${item.city}` : ''}</div>
                       </div>
-                      <div className="flex gap-2 ml-4">
-                        <button
-                          onClick={() => startEdit(item)}
-                          className="text-slate-400 hover:text-primary-600 transition-colors"
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          onClick={() => onRemoveItem(item.id)}
-                          className="text-slate-400 hover:text-red-600 transition-colors"
-                        >
-                          🗑️
-                        </button>
+                      <div className="text-sm text-slate-600">
+                        {item.startDate || item.endDate ? `${item.startDate || ''}${item.endDate ? ' — ' + item.endDate : ''}` : ''}
                       </div>
                     </div>
-                  </motion.div>
+
+                    {item.description && (
+                      <ul className="list-disc ml-5 mt-2 text-sm text-slate-700 space-y-1">
+                        {item.description.split(/\r?\n/).filter(Boolean).map((line, i) => (
+                          <li key={i}>{line}</li>
+                        ))}
+                      </ul>
+                    )}
+
+                    <div className="mt-2 flex items-center gap-2">
+                      <motion.button
+                        type="button"
+                        onClick={() => startEdit(item)}
+                        className="px-3 py-1 rounded border border-slate-300 hover:bg-slate-50"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        Modifier
+                      </motion.button>
+                      <motion.button
+                        type="button"
+                        onClick={() => onRemoveItem(item.id)}
+                        className="px-3 py-1 rounded border border-red-300 text-red-600 hover:bg-red-50"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        Supprimer
+                      </motion.button>
+                    </div>
+                  </div>
                 ))}
-                
+
                 {data.length === 0 && !showForm && (
                   <div className="text-center py-8 text-slate-500">
                     Aucune formation ajoutée pour le moment
