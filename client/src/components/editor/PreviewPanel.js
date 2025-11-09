@@ -1,7 +1,13 @@
+// src/components/editor/PreviewPanel.js
 import React, { useMemo } from 'react';
 
 const cls = (...xs) => xs.filter(Boolean).join(' ');
 const safeHTML = (html) => ({ __html: String(html || '') });
+
+const isNonEmptyHTML = (html) => {
+  const s = String(html || '').replace(/<[^>]+>/g, '').trim();
+  return s.length > 0;
+};
 
 const formatDate = (iso, mode = 'DMY_LONG') => {
   if (!iso) return '';
@@ -15,25 +21,68 @@ const formatDate = (iso, mode = 'DMY_LONG') => {
   }
   return iso;
 };
+
 const bullets = (text) =>
   String(text || '')
     .split(/\r?\n/)
     .map(s => s.trim())
     .filter(Boolean);
 
+// --- Normalisation souple des champs personnels ---
+const normPersonal = (raw = {}) => {
+  // supporte personal OU personalInfo (ancien/actuel)
+  const p = raw.personal || raw.personalInfo || raw;
+
+  // champs texte avec variantes possibles
+  const firstName =
+    p.firstName ?? p.firstname ?? p.first_name ?? '';
+  const lastName =
+    p.lastName ?? p.lastname ?? p.last_name ?? '';
+  const jobTitle =
+    p.jobTitle ?? p.title ?? p.position ?? '';
+  const email =
+    p.email ?? p.mail ?? '';
+  const phone =
+    p.phone ?? p.tel ?? p.telephone ?? '';
+  const city =
+    p.city ?? p.location ?? p.addressCity ?? '';
+  const website =
+    p.website ?? p.site ?? p.portfolio ?? '';
+  const linkedin =
+    p.linkedin ?? p.linkedIn ?? p.linkedinUrl ?? '';
+
+  // photo : essaie plusieurs clés; garde le premier string non vide
+  const photoSrc =
+    p.photoUrl || p.photo || p.photoPreview || p.avatar || p.avatarUrl || '';
+
+  return {
+    firstName,
+    lastName,
+    jobTitle,
+    email,
+    phone,
+    city,
+    website,
+    linkedin,
+    photoSrc
+  };
+};
+
 export function PreviewPanel({ cvData, settings }) {
   const {
-    personal = {},
-    profile = {},
+    // on garde les clés attendues par le preview
     education = [],
     experience = [],
     skills = [],
     languages = [],
     interests = [],
     customSections = [],
-    template = 'classic',
-    sectionMeta = {}
+    sectionMeta = {},
+    profile = {}
   } = cvData || {};
+
+  // normalise les infos personnelles (source = cvData)
+  const personal = useMemo(() => normPersonal(cvData || {}), [cvData]);
 
   const {
     fontSize = 'medium',
@@ -75,9 +124,10 @@ export function PreviewPanel({ cvData, settings }) {
       </span>
     ) : null;
 
+  // === Rendu ===
   return (
-    <div className="flex justify-center">
-      {/* Feuille A4 */}
+    <div className="flex justify-center" style={{ overflowX: 'hidden' }}>
+      {/* A4 */}
       <div
         className={cls(
           'bg-white rounded-sm',
@@ -85,11 +135,7 @@ export function PreviewPanel({ cvData, settings }) {
           'shadow-xl border border-slate-200 print:shadow-none print:border-0',
           sizeClass, lhClass
         )}
-        style={{
-          width: '794px',       // ≈ A4 @96dpi
-          maxWidth: '100%',
-          minHeight: '1123px'
-        }}
+        style={{ width: '794px', maxWidth: '100%', minHeight: '1123px' }}
       >
         {/* Header */}
         <header className="mb-6">
@@ -112,23 +158,27 @@ export function PreviewPanel({ cvData, settings }) {
               </div>
             </div>
 
-            {personal.photoUrl && (
+            {personal.photoSrc && (
               <div className="w-28 h-28 rounded-md overflow-hidden border border-slate-200 shrink-0">
-                <img src={personal.photoUrl} alt="" className="w-full h-full object-cover" />
+                <img src={personal.photoSrc} alt="" className="w-full h-full object-cover" />
               </div>
             )}
           </div>
         </header>
 
         {/* Profil */}
-        {visible('profile') && profile?.summary && (
+        {visible('profile') && isNonEmptyHTML(profile?.summary) && (
           <section className="mb-5">
             <h2 className={cls('text-base font-semibold pb-1 mb-2 border-b', accent)}>
               {titleOf('profile', 'Profil')}
               {pageBreakBadge('profile')}
             </h2>
-            <div className="prose prose-sm max-w-none text-slate-800"
-                 dangerouslySetInnerHTML={safeHTML(profile.summary)} />
+            <div
+              dir="ltr"
+              className="prose prose-sm max-w-none text-slate-800"
+              style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+              dangerouslySetInnerHTML={safeHTML(profile.summary)}
+            />
           </section>
         )}
 
@@ -243,12 +293,14 @@ export function PreviewPanel({ cvData, settings }) {
               {pageBreakBadge('interests')}
             </h2>
             <ul className="list-disc ml-5 space-y-1 text-slate-800">
-              {interests.map((it) => <li key={it.id}>{it.label || ''}</li>)}
+              {interests.map((it) => (
+                <li key={it.id}>{it.label || it.name || it.title || ''}</li>
+              ))}
             </ul>
           </section>
         )}
 
-        {/* Sections supplémentaires (déjà OK, inchangé sauf A4 container) */}
+        {/* Sections supplémentaires */}
         {Array.isArray(customSections) && customSections.length > 0 && (
           <section className="mb-5">
             {customSections.map((sec) => {
@@ -258,9 +310,7 @@ export function PreviewPanel({ cvData, settings }) {
               if (sec.type === 'internship') {
                 return (
                   <div key={sec.id} className="mb-5">
-                    <h2 className={cls('text-base font-semibold pb-1 mb-2 border-b', accent)}>
-                      {sec.title || 'Stage'}
-                    </h2>
+                    <h2 className={cls('text-base font-semibold pb-1 mb-2 border-b', accent)}>{sec.title || 'Stage'}</h2>
                     {(sec.items || []).length > 0 ? (
                       <div className="space-y-3">
                         {sec.items.map((it) => (
@@ -294,9 +344,7 @@ export function PreviewPanel({ cvData, settings }) {
               if (sec.type === 'certificate') {
                 return (
                   <div key={sec.id} className="mb-5">
-                    <h2 className={cls('text-base font-semibold pb-1 mb-2 border-b', accent)}>
-                      {sec.title || 'Certificats'}
-                    </h2>
+                    <h2 className={cls('text-base font-semibold pb-1 mb-2 border-b', accent)}>{sec.title || 'Certificats'}</h2>
                     {(sec.items || []).length > 0 ? (
                       <div className="space-y-3">
                         {sec.items.map((it) => (
@@ -328,9 +376,7 @@ export function PreviewPanel({ cvData, settings }) {
               if (sec.type === 'reference') {
                 return (
                   <div key={sec.id} className="mb-5">
-                    <h2 className={cls('text-base font-semibold pb-1 mb-2 border-b', accent)}>
-                      {sec.title || 'Références'}
-                    </h2>
+                    <h2 className={cls('text-base font-semibold pb-1 mb-2 border-b', accent)}>{sec.title || 'Références'}</h2>
                     {(sec.items || []).length > 0 ? (
                       <ul className="space-y-2">
                         {sec.items.map((it) => (
@@ -353,9 +399,7 @@ export function PreviewPanel({ cvData, settings }) {
               if (sec.type === 'project') {
                 return (
                   <div key={sec.id} className="mb-5">
-                    <h2 className={cls('text-base font-semibold pb-1 mb-2 border-b', accent)}>
-                      {sec.title || 'Projets'}
-                    </h2>
+                    <h2 className={cls('text-base font-semibold pb-1 mb-2 border-b', accent)}>{sec.title || 'Projets'}</h2>
                     {(sec.items || []).length > 0 ? (
                       <div className="space-y-3">
                         {sec.items.map((it) => (
@@ -383,9 +427,7 @@ export function PreviewPanel({ cvData, settings }) {
               if (sec.type === 'publication') {
                 return (
                   <div key={sec.id} className="mb-5">
-                    <h2 className={cls('text-base font-semibold pb-1 mb-2 border-b', accent)}>
-                      {sec.title || 'Publications'}
-                    </h2>
+                    <h2 className={cls('text-base font-semibold pb-1 mb-2 border-b', accent)}>{sec.title || 'Publications'}</h2>
                     {(sec.items || []).length > 0 ? (
                       <div className="space-y-3">
                         {sec.items.map((it) => (
@@ -412,14 +454,12 @@ export function PreviewPanel({ cvData, settings }) {
               if (sec.type === 'custom') {
                 return (
                   <div key={sec.id} className="mb-5">
-                    <h2 className={cls('text-base font-semibold pb-1 mb-2 border-b', accent)}>
-                      {sec.title || 'Section personnalisée'}
-                    </h2>
+                    <h2 className={cls('text-base font-semibold pb-1 mb-2 border-b', accent)}>{sec.title || 'Section personnalisée'}</h2>
                     {(sec.items || []).length > 0 ? (
                       <div className="space-y-1">
                         {sec.items.map((it) => (
                           <div key={it.id}>
-                            <div className="font-semibold text-slate-900">{it.label}</div>
+                            <div className="font-semibold text-slate-900">{it.label || it.name || it.title}</div>
                             {it.description && (
                               <ul className="list-disc ml-5 mt-1 text-slate-800 space-y-1">
                                 {bulletsMap(it.description)}
@@ -461,7 +501,6 @@ export function PreviewPanel({ cvData, settings }) {
             })}
           </section>
         )}
-
       </div>
     </div>
   );

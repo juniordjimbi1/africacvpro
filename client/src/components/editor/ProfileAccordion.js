@@ -4,32 +4,81 @@ import { normalizeEditorHTML } from '../../utils/richText';
 
 export function ProfileAccordion({ data, isExpanded, onToggle, onChange }) {
   const contentRef = useRef(null);
+
+  // 🔒 Garde le contenu à travers les (un)mounts de l'accordéon
+  const [summaryLocal, setSummaryLocal] = useState(
+    typeof data?.summary === 'string' ? data.summary : ''
+  );
+
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
   const [isUnderline, setIsUnderline] = useState(false);
 
-  // Hydrate l'éditeur quand data.summary change (ex: chargement CV)
+  // Quand la prop change réellement (ex: chargement, autosave externe), on resynchronise le local
   useEffect(() => {
-    if (!contentRef.current) return;
-    const html = data?.summary || '';
-    // On met le HTML tel quel (avec styles) dans l’éditeur
-    contentRef.current.innerHTML = html || '';
-    // Met à jour l'état des boutons selon la sélection courante
-    updateToolbarStates();
+    if (typeof data?.summary !== 'string') return;
+    if (data.summary !== summaryLocal) {
+      setSummaryLocal(data.summary);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.summary]);
 
-  // Applique format; si pas de sélection → sélectionne tout
+  // À l'ouverture : hydrate le DOM depuis le local (évite l'effet "zone vide" au re-open)
+  useEffect(() => {
+    if (!isExpanded || !contentRef.current) return;
+    if (contentRef.current.innerHTML !== summaryLocal) {
+      contentRef.current.innerHTML = summaryLocal || '';
+    }
+    // focus doux
+    setTimeout(() => contentRef.current?.focus(), 0);
+  }, [isExpanded, summaryLocal]);
+
+  const updateToolbarStates = () => {
+    try {
+      setIsBold(document.queryCommandState('bold'));
+      setIsItalic(document.queryCommandState('italic'));
+      setIsUnderline(document.queryCommandState('underline'));
+    } catch {}
+  };
+
+  // Détermine si le HTML est "vraiment vide"
+  const isTrulyEmpty = (html) => {
+    if (!html) return true;
+    const stripped = html
+      .replace(/<br\s*\/?>/gi, '')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/<[^>]*>/g, '')
+      .trim();
+    return stripped.length === 0;
+  };
+
+  // Pousse vers parent + garde local en phase
+  const pushChange = (html) => {
+    const normalized = normalizeEditorHTML(html || '');
+    const value = isTrulyEmpty(normalized) ? '' : normalized;
+    setSummaryLocal(value);
+    if (typeof onChange === 'function') {
+      onChange('summary', value);
+    }
+  };
+
+  const syncFromDom = () => {
+    const el = contentRef.current;
+    if (!el) return;
+    pushChange(el.innerHTML);
+  };
+
   const applyCommand = (cmd) => {
     const el = contentRef.current;
     if (!el) return;
-
     el.focus();
-    const sel = window.getSelection();
-    const hasSelection = sel && sel.rangeCount > 0 && !sel.isCollapsed && el.contains(sel.anchorNode);
 
+    const sel = window.getSelection();
+    const hasSelection =
+      sel && sel.rangeCount > 0 && !sel.isCollapsed && el.contains(sel.anchorNode);
+
+    // Sans sélection -> applique au contenu entier (comportement Word-like)
     if (!hasSelection) {
-      // Sélectionne tout le contenu puis toggle
       const range = document.createRange();
       range.selectNodeContents(el);
       sel.removeAllRanges();
@@ -41,45 +90,25 @@ export function ProfileAccordion({ data, isExpanded, onToggle, onChange }) {
     updateToolbarStates();
   };
 
-  const updateToolbarStates = () => {
-    try {
-      setIsBold(document.queryCommandState('bold'));
-      setIsItalic(document.queryCommandState('italic'));
-      setIsUnderline(document.queryCommandState('underline'));
-    } catch (e) {
-      // queryCommandState peut échouer si pas de focus, on ignore.
-    }
-  };
-
-  const syncFromDom = () => {
-    const el = contentRef.current;
-    if (!el) return;
-    const raw = el.innerHTML;
-    const normalized = normalizeEditorHTML(raw);
-    onChange({ ...data, summary: normalized });
-  };
-
-  // Écoute les changements de sélection pour mettre les boutons à jour
   useEffect(() => {
     const handler = () => {
-      if (!contentRef.current) return;
-      if (!document.activeElement || !contentRef.current.contains(document.activeElement) && document.activeElement !== contentRef.current) {
-        return;
-      }
+      const active = document.activeElement;
+      if (!contentRef.current || !active) return;
+      if (!contentRef.current.contains(active) && active !== contentRef.current) return;
       updateToolbarStates();
     };
     document.addEventListener('selectionchange', handler);
     return () => document.removeEventListener('selectionchange', handler);
   }, []);
 
-  // Saisie dans le contenteditable → on normalise et on remonte
-  const onInput = () => {
+  const onInput = () => syncFromDom();
+  const onBlur = () => {
     syncFromDom();
+    updateToolbarStates();
   };
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-      {/* Header */}
       <button
         onClick={onToggle}
         className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-slate-50 transition-colors"
@@ -105,23 +134,31 @@ export function ProfileAccordion({ data, isExpanded, onToggle, onChange }) {
             transition={{ duration: 0.3 }}
           >
             <div className="px-6 py-4 space-y-4">
-              {/* Éditeur WYSIWYG */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Résumé professionnel
                 </label>
+
                 <div
                   ref={contentRef}
                   contentEditable
                   suppressContentEditableWarning
                   onInput={onInput}
+                  onBlur={onBlur}
+                  dir="ltr"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent min-h-[144px] leading-relaxed"
-                  style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
-                  placeholder="Décrivez vos objectifs et vos points forts..."
+                  style={{
+                    whiteSpace: 'pre-wrap',
+                    overflowWrap: 'anywhere',
+                    direction: 'ltr',
+                    unicodeBidi: 'plaintext',
+                    textAlign: 'left',
+                  }}
+                  // placeholder visuel possible via CSS si nécessaire
                 />
               </div>
 
-              {/* Toolbar sous la zone de texte */}
+              {/* Toolbar SOUS la zone de texte (comme demandé) */}
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -147,20 +184,10 @@ export function ProfileAccordion({ data, isExpanded, onToggle, onChange }) {
                 >
                   <u>U</u>
                 </button>
-                <span className="text-xs text-slate-500 ml-2">
-                  Astuce&nbsp;: sans sélection, B/I/U s’appliquent à tout le texte. Re-cliquer retire le style.
-                </span>
-              </div>
 
-              {/* Bloc IA — inchangé si présent */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="font-medium text-blue-900 mb-2 flex items-center gap-2">
-                  <span>🤖</span>
-                  Suggestions de l'IA
-                </h4>
-                <p className="text-sm text-blue-700">
-                  Cette fonctionnalité sera disponible prochainement pour vous aider à améliorer votre profil.
-                </p>
+                <span className="text-xs text-slate-500 ml-2">
+                  Astuce : sans sélection, B/I/U s’appliquent à tout le texte. Re-cliquer retire le style.
+                </span>
               </div>
             </div>
           </motion.div>

@@ -9,14 +9,15 @@ import { FadeIn } from '../components/animations/FadeIn';
 
 function HeroSection() {
   return (
-    <div className="grid md:grid-cols-2 gap-12 items-center py-8">
-      <motion.div 
-        className="space-y-6"
+    <div className="grid md:grid-cols-2 gap-10 md:gap-12 items-center pt-3 md:pt-4 pb-6 -mt-2 md:-mt-4">
+      <motion.div
+        className="space-y-5 md:space-y-6 -mt-5 md:-mt-10"
         initial={{ opacity: 0, x: -50 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.7, ease: "easeOut" }}
       >
-        <div className="space-y-4">
+
+        <div className="space-y-3 md:space-y-4">
           <motion.h1 
             className="text-4xl md:text-5xl font-bold text-slate-900 leading-tight"
             initial={{ opacity: 0, y: 30 }}
@@ -68,14 +69,8 @@ function HeroSection() {
         >
           <motion.div 
             className="w-2 h-2 bg-success-500 rounded-full"
-            animate={{ 
-              scale: [1, 1.2, 1],
-            }}
-            transition={{ 
-              duration: 2, 
-              repeat: Infinity,
-              repeatType: "reverse"
-            }}
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={{ duration: 2, repeat: Infinity, repeatType: "reverse" }}
           />
           <span>Compatible ATS • Aperçu gratuit • Paiement après validation • WhatsApp</span>
         </motion.div>
@@ -89,20 +84,13 @@ function HeroSection() {
       >
         <motion.div 
           className="aspect-[210/297] w-full max-w-md border-2 border-dashed border-slate-300 rounded-2xl bg-white shadow-xl grid place-items-center relative overflow-hidden"
-          whileHover={{ 
-            y: -10,
-            transition: { duration: 0.3 }
-          }}
+          whileHover={{ y: -10, transition: { duration: 0.3 } }}
         >
           {/* Effet de brillance subtile */}
           <motion.div 
             className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform -skew-x-12"
             animate={{ x: [-100, 300] }}
-            transition={{ 
-              duration: 3, 
-              repeat: Infinity,
-              repeatDelay: 2
-            }}
+            transition={{ duration: 3, repeat: Infinity, repeatDelay: 2 }}
           />
           <span className="text-slate-400 text-sm relative z-10">Aperçu CV A4 - Design professionnel</span>
         </motion.div>
@@ -110,6 +98,7 @@ function HeroSection() {
     </div>
   );
 }
+
 
 function StepsSection() {
   const steps = [

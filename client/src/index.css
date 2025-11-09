@@ -8,4 +8,29 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ==== Focus mode éditeur (masquer chrome global sur cette route) ==== */
+body.editor-focus-mode {
+  overflow: hidden; /* le body ne scrolle plus ; chaque colonne gère son scroll */
+  background: #f8fafc; /* slate-50 fallback au cas où */
+}
+
+/* Masquer les entêtes/pieds globaux connus */
+body.editor-focus-mode header,
+body.editor-focus-mode footer,
+body.editor-focus-mode .site-header,
+body.editor-focus-mode .app-footer,
+body.editor-focus-mode nav[role="navigation"],
+body.editor-focus-mode [data-site-header],
+body.editor-focus-mode [data-site-footer],
+body.editor-focus-mode #root > header,
+body.editor-focus-mode #root > div > header,
+body.editor-focus-mode #__next > header {
+  display: none !important;
+}
+
+body.editor-focus-mode #root header,
+body.editor-focus-mode #root footer {
+  display: none !important;
+}
+
 /* Vos styles personnalisés si besoin */

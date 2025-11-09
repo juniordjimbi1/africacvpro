@@ -1,47 +1,98 @@
-import React, { useState } from 'react';
+// src/components/editor/PersonalAccordion.js
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiUpload } from '../../services/api';
 
-export function PersonalAccordion({ data, isExpanded, onToggle, onChange }) {
-  const [customFields, setCustomFields] = useState(data.customFields || []);
+function PersonalAccordion({
+  data,
+  isExpanded,
+  onToggle,
+  onChange,
+  onPersonalChange,
+  onSectionChange
+}) {
+  const [customFields, setCustomFields] = useState(data?.customFields || []);
   const [photoBusy, setPhotoBusy] = useState(false);
 
-  const handleChange = (field, value) => {
-    onChange({ ...data, [field]: value });
+  // -------------------------------------------------
+  // Émetteur multi-signature (pour max compat)
+  // -------------------------------------------------
+  const emit = (field, value, opts = {}) => {
+    const nextPersonal = { ...(data || {}), [field]: value };
+    const sectionKey = 'personal';
+
+    // 1) (field, value)
+    try { typeof onChange === 'function' && onChange(field, value); } catch {}
+    try { typeof onPersonalChange === 'function' && onPersonalChange(field, value); } catch {}
+
+    // 2) (section, field, value)
+    try { typeof onChange === 'function' && onChange(sectionKey, field, value); } catch {}
+    try { typeof onSectionChange === 'function' && onSectionChange(sectionKey, field, value); } catch {}
+
+    // 3) (patchObject) / (section, patchObject)
+    try { typeof onChange === 'function' && onChange({ [sectionKey]: nextPersonal }); } catch {}
+    try { typeof onPersonalChange === 'function' && onPersonalChange(nextPersonal); } catch {}
+    try { typeof onChange === 'function' && onChange(sectionKey, nextPersonal); } catch {}
+    try { typeof onSectionChange === 'function' && onSectionChange(sectionKey, nextPersonal); } catch {}
+
+    // fullName auto si prénom/nom
+    if (opts.emitFullName) {
+      const fn = field === 'firstName' ? value : (data?.firstName || '');
+      const ln = field === 'lastName' ? value : (data?.lastName || '');
+      const full = `${fn || ''} ${ln || ''}`.trim();
+
+      const nextWithFull = { ...(data || {}), [field]: value, fullName: full };
+
+      try { typeof onChange === 'function' && onChange('fullName', full); } catch {}
+      try { typeof onChange === 'function' && onChange(sectionKey, 'fullName', full); } catch {}
+      try { typeof onPersonalChange === 'function' && onPersonalChange('fullName', full); } catch {}
+      try { typeof onSectionChange === 'function' && onSectionChange(sectionKey, 'fullName', full); } catch {}
+
+      try { typeof onChange === 'function' && onChange({ [sectionKey]: nextWithFull }); } catch {}
+      try { typeof onPersonalChange === 'function' && onPersonalChange(nextWithFull); } catch {}
+      try { typeof onChange === 'function' && onChange(sectionKey, nextWithFull); } catch {}
+      try { typeof onSectionChange === 'function' && onSectionChange(sectionKey, nextWithFull); } catch {}
+    }
   };
 
+  const handleChange = (field, value) => {
+    const emitFullName = field === 'firstName' || field === 'lastName';
+    emit(field, value, { emitFullName });
+  };
+
+  useEffect(() => {
+    setCustomFields(data?.customFields || []);
+  }, [data?.customFields]);
+
   const addCustomField = () => {
-    const newField = {
-      id: Date.now(),
-      label: 'Nouveau champ',
-      value: ''
-    };
-    const updatedFields = [...customFields, newField];
-    setCustomFields(updatedFields);
-    onChange({ ...data, customFields: updatedFields });
+    const newField = { id: Date.now(), label: 'Nouveau champ', value: '' };
+    const updated = [...(customFields || []), newField];
+    setCustomFields(updated);
+    handleChange('customFields', updated);
   };
 
   const updateCustomField = (id, updates) => {
-    const updatedFields = customFields.map(field =>
-      field.id === id ? { ...field, ...updates } : field
+    const updated = (customFields || []).map(f =>
+      f.id === id ? { ...f, ...updates } : f
     );
-    setCustomFields(updatedFields);
-    onChange({ ...data, customFields: updatedFields });
+    setCustomFields(updated);
+    handleChange('customFields', updated);
   };
 
   const removeCustomField = (id) => {
-    const updatedFields = customFields.filter(field => field.id !== id);
-    setCustomFields(updatedFields);
-    onChange({ ...data, customFields: updatedFields });
+    const updated = (customFields || []).filter(f => f.id !== id);
+    setCustomFields(updated);
+    handleChange('customFields', updated);
   };
 
   const handlePhoto = async (file) => {
     if (!file) return;
     setPhotoBusy(true);
     try {
-      // Upload vers l'API → renvoie { url }
-      const { url } = await apiUpload.uploadPhoto(file);
+      const { url } = await apiUpload.uploadPhoto(file); // doit renvoyer { url }
+      // garder les deux clés synchro (compat preview)
       handleChange('photoUrl', url);
+      handleChange('photo', url);
     } catch (e) {
       console.error(e);
       alert("Échec de l'upload de la photo");
@@ -52,7 +103,6 @@ export function PersonalAccordion({ data, isExpanded, onToggle, onChange }) {
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-      {/* En-tête de l'accordéon */}
       <button
         onClick={onToggle}
         className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-slate-50 transition-colors"
@@ -64,15 +114,11 @@ export function PersonalAccordion({ data, isExpanded, onToggle, onChange }) {
             <p className="text-sm text-slate-600">Prénom, nom, coordonnées...</p>
           </div>
         </div>
-        <motion.div
-          animate={{ rotate: isExpanded ? 180 : 0 }}
-          transition={{ duration: 0.2 }}
-        >
+        <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
           <span className="text-slate-400">▼</span>
         </motion.div>
       </button>
 
-      {/* Contenu de l'accordéon */}
       <AnimatePresence>
         {isExpanded && (
           <motion.div
@@ -85,10 +131,10 @@ export function PersonalAccordion({ data, isExpanded, onToggle, onChange }) {
               {/* Photo */}
               <div className="flex items-start gap-6">
                 <div className="w-24 h-24 bg-slate-200 rounded-lg flex items-center justify-center overflow-hidden">
-                  {data.photoUrl ? (
+                  {(data?.photoUrl || data?.photo) ? (
                     <img
-                      src={data.photoUrl}
-                      alt="Photo"
+                      src={data?.photoUrl || data?.photo}
+                      alt=""
                       className="w-full h-full object-cover rounded-lg"
                     />
                   ) : (
@@ -96,9 +142,7 @@ export function PersonalAccordion({ data, isExpanded, onToggle, onChange }) {
                   )}
                 </div>
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Photo de profil
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Photo de profil</label>
                   <input
                     type="file"
                     accept="image/*"
@@ -106,10 +150,10 @@ export function PersonalAccordion({ data, isExpanded, onToggle, onChange }) {
                     className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 disabled:opacity-50"
                     onChange={(e) => handlePhoto(e.target.files?.[0])}
                   />
-                  {data.photoUrl && (
+                  {(data?.photoUrl || data?.photo) && (
                     <button
                       type="button"
-                      onClick={() => handleChange('photoUrl', '')}
+                      onClick={() => { handleChange('photoUrl', ''); handleChange('photo', ''); }}
                       className="mt-2 text-xs text-red-600 hover:underline"
                       disabled={photoBusy}
                     >
@@ -119,27 +163,23 @@ export function PersonalAccordion({ data, isExpanded, onToggle, onChange }) {
                 </div>
               </div>
 
-              {/* Prénom et Nom */}
+              {/* Prénom / Nom */}
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Prénom
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Prénom</label>
                   <input
                     type="text"
-                    value={data.firstName || ''}
+                    value={data?.firstName || ''}
                     onChange={(e) => handleChange('firstName', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="Votre prénom"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Nom
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Nom</label>
                   <input
                     type="text"
-                    value={data.lastName || ''}
+                    value={data?.lastName || ''}
                     onChange={(e) => handleChange('lastName', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="Votre nom"
@@ -149,39 +189,33 @@ export function PersonalAccordion({ data, isExpanded, onToggle, onChange }) {
 
               {/* Emploi recherché */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Emploi recherché
-                </label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Emploi recherché</label>
                 <input
                   type="text"
-                  value={data.jobTitle || ''}
+                  value={data?.jobTitle || ''}
                   onChange={(e) => handleChange('jobTitle', e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="Ex: Développeur Full-Stack"
                 />
               </div>
 
-              {/* Email et Téléphone */}
+              {/* Email / Téléphone */}
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Email
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Email</label>
                   <input
                     type="email"
-                    value={data.email || ''}
+                    value={data?.email || ''}
                     onChange={(e) => handleChange('email', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="votre@email.com"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Téléphone
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Téléphone</label>
                   <input
                     type="tel"
-                    value={data.phone || ''}
+                    value={data?.phone || ''}
                     onChange={(e) => handleChange('phone', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="+221 XX XXX XX XX"
@@ -189,27 +223,23 @@ export function PersonalAccordion({ data, isExpanded, onToggle, onChange }) {
                 </div>
               </div>
 
-              {/* Adresse et Ville */}
+              {/* Adresse / Ville */}
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Adresse
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Adresse</label>
                   <input
                     type="text"
-                    value={data.address || ''}
+                    value={data?.address || ''}
                     onChange={(e) => handleChange('address', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="Votre adresse"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Ville
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Ville</label>
                   <input
                     type="text"
-                    value={data.city || ''}
+                    value={data?.city || ''}
                     onChange={(e) => handleChange('city', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="Ville"
@@ -217,26 +247,22 @@ export function PersonalAccordion({ data, isExpanded, onToggle, onChange }) {
                 </div>
               </div>
 
-              {/* Champs supplémentaires */}
+              {/* Extras */}
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Date de naissance
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Date de naissance</label>
                   <input
                     type="date"
-                    value={data.birthDate || ''}
+                    value={data?.birthDate || ''}
                     onChange={(e) => handleChange('birthDate', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Lieu de naissance
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Lieu de naissance</label>
                   <input
                     type="text"
-                    value={data.birthPlace || ''}
+                    value={data?.birthPlace || ''}
                     onChange={(e) => handleChange('birthPlace', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
@@ -245,51 +271,43 @@ export function PersonalAccordion({ data, isExpanded, onToggle, onChange }) {
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Permis
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Permis</label>
                   <input
                     type="text"
-                    value={data.driving || ''}
+                    value={data?.driving || ''}
                     onChange={(e) => handleChange('driving', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="Ex: B, A, C..."
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Nationalité
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Nationalité</label>
                   <input
                     type="text"
-                    value={data.nationality || ''}
+                    value={data?.nationality || ''}
                     onChange={(e) => handleChange('nationality', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
               </div>
 
-              {/* Sites web */}
+              {/* Sites */}
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Site internet
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Site internet</label>
                   <input
                     type="url"
-                    value={data.website || ''}
+                    value={data?.website || ''}
                     onChange={(e) => handleChange('website', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="https://..."
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    LinkedIn
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">LinkedIn</label>
                   <input
                     type="url"
-                    value={data.linkedin || ''}
+                    value={data?.linkedin || ''}
                     onChange={(e) => handleChange('linkedin', e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="https://linkedin.com/in/..."
@@ -300,9 +318,7 @@ export function PersonalAccordion({ data, isExpanded, onToggle, onChange }) {
               {/* Champs personnalisés */}
               <div>
                 <div className="flex justify-between items-center mb-4">
-                  <label className="block text-sm font-medium text-slate-700">
-                    Champs personnalisés
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700">Champs personnalisés</label>
                   <button
                     onClick={addCustomField}
                     className="text-sm bg-primary-600 hover:bg-primary-700 text-white px-3 py-1 rounded transition-colors"
@@ -312,7 +328,7 @@ export function PersonalAccordion({ data, isExpanded, onToggle, onChange }) {
                 </div>
 
                 <div className="space-y-3">
-                  {customFields.map((field) => (
+                  {(customFields || []).map((field) => (
                     <div key={field.id} className="flex gap-3 items-start">
                       <input
                         type="text"
@@ -329,6 +345,7 @@ export function PersonalAccordion({ data, isExpanded, onToggle, onChange }) {
                         placeholder="Valeur"
                       />
                       <button
+                        type="button"
                         onClick={() => removeCustomField(field.id)}
                         className="text-red-600 hover:text-red-700 p-2"
                       >
@@ -345,3 +362,6 @@ export function PersonalAccordion({ data, isExpanded, onToggle, onChange }) {
     </div>
   );
 }
+
+export default PersonalAccordion;
+export { PersonalAccordion };
