@@ -29,31 +29,43 @@ const bullets = (text) =>
     .filter(Boolean);
 
 // --- Normalisation souple des champs personnels ---
+// 🔧 CORRIGÉ : on fusionne racine + personalInfo + personal
 const normPersonal = (raw = {}) => {
-  // supporte personal OU personalInfo (ancien/actuel)
-  const p = raw.personal || raw.personalInfo || raw;
+  const base = raw || {};
 
-  // champs texte avec variantes possibles
+  // merge : la racine donne les valeurs par défaut,
+  // personalInfo puis personal peuvent les surcharger
+  const merged = {
+    ...base,
+    ...(base.personalInfo || {}),
+    ...(base.personal || {}),
+  };
+
   const firstName =
-    p.firstName ?? p.firstname ?? p.first_name ?? '';
+    merged.firstName ?? merged.firstname ?? merged.first_name ?? '';
   const lastName =
-    p.lastName ?? p.lastname ?? p.last_name ?? '';
+    merged.lastName ?? merged.lastname ?? merged.last_name ?? '';
   const jobTitle =
-    p.jobTitle ?? p.title ?? p.position ?? '';
+    merged.jobTitle ?? merged.title ?? merged.position ?? ''; // <- emploi recherché
   const email =
-    p.email ?? p.mail ?? '';
+    merged.email ?? merged.mail ?? '';
   const phone =
-    p.phone ?? p.tel ?? p.telephone ?? '';
+    merged.phone ?? merged.tel ?? merged.telephone ?? '';
   const city =
-    p.city ?? p.location ?? p.addressCity ?? '';
+    merged.city ?? merged.location ?? merged.addressCity ?? '';
   const website =
-    p.website ?? p.site ?? p.portfolio ?? '';
+    merged.website ?? merged.site ?? merged.portfolio ?? '';
   const linkedin =
-    p.linkedin ?? p.linkedIn ?? p.linkedinUrl ?? '';
+    merged.linkedin ?? merged.linkedIn ?? merged.linkedinUrl ?? '';
 
   // photo : essaie plusieurs clés; garde le premier string non vide
   const photoSrc =
-    p.photoUrl || p.photo || p.photoPreview || p.avatar || p.avatarUrl || '';
+    merged.photoUrl ||
+    merged.photo ||
+    merged.photoPreview ||
+    merged.avatar ||
+    merged.avatarUrl ||
+    '';
 
   return {
     firstName,
@@ -64,11 +76,17 @@ const normPersonal = (raw = {}) => {
     city,
     website,
     linkedin,
-    photoSrc
+    photoSrc,
   };
 };
 
-export function PreviewPanel({ cvData, settings }) {
+export function PreviewPanel({ cvData, settings, templateId  }) {
+  const templateKey =
+    (settings && settings.template) ||
+    templateId ||
+    (cvData && cvData.template) ||
+    'classic';
+    
   const {
     // on garde les clés attendues par le preview
     education = [],
@@ -384,7 +402,7 @@ export function PreviewPanel({ cvData, settings }) {
                             <span className="font-semibold">{it.name}</span> — {it.role}
                             {it.company ? ` @ ${it.company}` : ''}
                             <div className="text-slate-700 text-sm">
-                              {it.email}{it.phone ? ` • ${it.phone}` : ''}{it.authorized ? ' • OK pour contact' : ''}
+                              {it.email}{it.phone ? ` • {it.phone}` : ''}{it.authorized ? ' • OK pour contact' : ''}
                             </div>
                           </li>
                         ))}

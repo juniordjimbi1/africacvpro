@@ -1,7 +1,33 @@
+// src/components/editor/BottomToolbar.js
 import React from 'react';
 import { motion } from 'framer-motion';
 
+// Valeurs par défaut si rien n'est passé en props
+const DEFAULT_SETTINGS = {
+  template: 'classic',
+  fontFamily: 'inter',
+  fontSize: 'medium',     // 'small' | 'medium' | 'large' pour coller à PreviewPanel
+  lineHeight: 1.25,
+  dateFormat: 'DMY_LONG',
+};
+
 export function BottomToolbar({ settings, onSettingsChange }) {
+  // On merge les settings reçus avec les valeurs par défaut
+  const safeSettings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
+
+  const updateSettings = (patch) => {
+    const next = { ...safeSettings, ...patch };
+    if (typeof onSettingsChange === 'function') {
+      onSettingsChange(next);
+    }
+  };
+
+  const FONT_SIZES = [
+    { key: 'small', label: 'S' },
+    { key: 'medium', label: 'M' },
+    { key: 'large', label: 'L' },
+  ];
+
   return (
     <motion.div
       initial={{ y: 100 }}
@@ -14,8 +40,8 @@ export function BottomToolbar({ settings, onSettingsChange }) {
           <div className="flex items-center gap-2">
             <span className="text-sm text-slate-600">Modèle:</span>
             <select
-              value={settings.template}
-              onChange={(e) => onSettingsChange({ ...settings, template: e.target.value })}
+              value={safeSettings.template}
+              onChange={(e) => updateSettings({ template: e.target.value })}
               className="text-sm border border-slate-300 rounded px-2 py-1"
             >
               <option value="classic">Classique</option>
@@ -28,8 +54,8 @@ export function BottomToolbar({ settings, onSettingsChange }) {
           <div className="flex items-center gap-2">
             <span className="text-sm text-slate-600">Police:</span>
             <select
-              value={settings.fontFamily}
-              onChange={(e) => onSettingsChange({ ...settings, fontFamily: e.target.value })}
+              value={safeSettings.fontFamily}
+              onChange={(e) => updateSettings({ fontFamily: e.target.value })}
               className="text-sm border border-slate-300 rounded px-2 py-1"
             >
               <option value="inter">Inter</option>
@@ -42,17 +68,17 @@ export function BottomToolbar({ settings, onSettingsChange }) {
           <div className="flex items-center gap-2">
             <span className="text-sm text-slate-600">Taille:</span>
             <div className="flex gap-1">
-              {['S', 'M', 'L'].map((size) => (
+              {FONT_SIZES.map((fs) => (
                 <button
-                  key={size}
-                  onClick={() => onSettingsChange({ ...settings, fontSize: size.toLowerCase() })}
+                  key={fs.key}
+                  onClick={() => updateSettings({ fontSize: fs.key })}
                   className={`w-8 h-8 rounded text-sm ${
-                    settings.fontSize === size.toLowerCase()
+                    safeSettings.fontSize === fs.key
                       ? 'bg-primary-600 text-white'
                       : 'bg-slate-200 text-slate-600'
                   }`}
                 >
-                  {size}
+                  {fs.label}
                 </button>
               ))}
             </div>
@@ -65,18 +91,18 @@ export function BottomToolbar({ settings, onSettingsChange }) {
               {[
                 { value: 1.15, label: '1.15' },
                 { value: 1.25, label: '1.25' },
-                { value: 1.5, label: '1.5' }
-              ].map((lineHeight) => (
+                { value: 1.5, label: '1.5' },
+              ].map((lh) => (
                 <button
-                  key={lineHeight.value}
-                  onClick={() => onSettingsChange({ ...settings, lineHeight: lineHeight.value })}
+                  key={lh.value}
+                  onClick={() => updateSettings({ lineHeight: lh.value })}
                   className={`w-8 h-8 rounded text-sm ${
-                    settings.lineHeight === lineHeight.value
+                    safeSettings.lineHeight === lh.value
                       ? 'bg-primary-600 text-white'
                       : 'bg-slate-200 text-slate-600'
                   }`}
                 >
-                  {lineHeight.label}
+                  {lh.label}
                 </button>
               ))}
             </div>
@@ -88,8 +114,8 @@ export function BottomToolbar({ settings, onSettingsChange }) {
           <div className="flex items-center gap-2">
             <span className="text-sm text-slate-600">Dates:</span>
             <select
-              value={settings.dateFormat}
-              onChange={(e) => onSettingsChange({ ...settings, dateFormat: e.target.value })}
+              value={safeSettings.dateFormat}
+              onChange={(e) => updateSettings({ dateFormat: e.target.value })}
               className="text-sm border border-slate-300 rounded px-2 py-1"
             >
               <option value="DMY_NUM">JJ/MM/AAAA</option>
@@ -100,7 +126,7 @@ export function BottomToolbar({ settings, onSettingsChange }) {
             </select>
           </div>
 
-          {/* Plein écran */}
+          {/* Plein écran (à brancher plus tard) */}
           <button className="text-slate-600 hover:text-primary-600 transition-colors">
             ⛶ Plein écran
           </button>

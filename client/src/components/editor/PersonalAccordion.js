@@ -7,57 +7,22 @@ function PersonalAccordion({
   data,
   isExpanded,
   onToggle,
-  onChange,
-  onPersonalChange,
-  onSectionChange
+  onChange // onPersonalChange / onSectionChange ne sont plus utilisés
 }) {
   const [customFields, setCustomFields] = useState(data?.customFields || []);
   const [photoBusy, setPhotoBusy] = useState(false);
 
-  // -------------------------------------------------
-  // Émetteur multi-signature (pour max compat)
-  // -------------------------------------------------
-  const emit = (field, value, opts = {}) => {
-    const nextPersonal = { ...(data || {}), [field]: value };
-    const sectionKey = 'personal';
-
-    // 1) (field, value)
-    try { typeof onChange === 'function' && onChange(field, value); } catch {}
-    try { typeof onPersonalChange === 'function' && onPersonalChange(field, value); } catch {}
-
-    // 2) (section, field, value)
-    try { typeof onChange === 'function' && onChange(sectionKey, field, value); } catch {}
-    try { typeof onSectionChange === 'function' && onSectionChange(sectionKey, field, value); } catch {}
-
-    // 3) (patchObject) / (section, patchObject)
-    try { typeof onChange === 'function' && onChange({ [sectionKey]: nextPersonal }); } catch {}
-    try { typeof onPersonalChange === 'function' && onPersonalChange(nextPersonal); } catch {}
-    try { typeof onChange === 'function' && onChange(sectionKey, nextPersonal); } catch {}
-    try { typeof onSectionChange === 'function' && onSectionChange(sectionKey, nextPersonal); } catch {}
-
-    // fullName auto si prénom/nom
-    if (opts.emitFullName) {
-      const fn = field === 'firstName' ? value : (data?.firstName || '');
-      const ln = field === 'lastName' ? value : (data?.lastName || '');
-      const full = `${fn || ''} ${ln || ''}`.trim();
-
-      const nextWithFull = { ...(data || {}), [field]: value, fullName: full };
-
-      try { typeof onChange === 'function' && onChange('fullName', full); } catch {}
-      try { typeof onChange === 'function' && onChange(sectionKey, 'fullName', full); } catch {}
-      try { typeof onPersonalChange === 'function' && onPersonalChange('fullName', full); } catch {}
-      try { typeof onSectionChange === 'function' && onSectionChange(sectionKey, 'fullName', full); } catch {}
-
-      try { typeof onChange === 'function' && onChange({ [sectionKey]: nextWithFull }); } catch {}
-      try { typeof onPersonalChange === 'function' && onPersonalChange(nextWithFull); } catch {}
-      try { typeof onChange === 'function' && onChange(sectionKey, nextWithFull); } catch {}
-      try { typeof onSectionChange === 'function' && onSectionChange(sectionKey, nextWithFull); } catch {}
+  const emit = (field, value) => {
+    if (typeof onChange === 'function') {
+      onChange(field, value);
     }
   };
 
   const handleChange = (field, value) => {
-    const emitFullName = field === 'firstName' || field === 'lastName';
-    emit(field, value, { emitFullName });
+    emit(field, value);
+    if (field === 'customFields') {
+      setCustomFields(value || []);
+    }
   };
 
   useEffect(() => {
@@ -67,7 +32,6 @@ function PersonalAccordion({
   const addCustomField = () => {
     const newField = { id: Date.now(), label: 'Nouveau champ', value: '' };
     const updated = [...(customFields || []), newField];
-    setCustomFields(updated);
     handleChange('customFields', updated);
   };
 
@@ -75,13 +39,11 @@ function PersonalAccordion({
     const updated = (customFields || []).map(f =>
       f.id === id ? { ...f, ...updates } : f
     );
-    setCustomFields(updated);
     handleChange('customFields', updated);
   };
 
   const removeCustomField = (id) => {
     const updated = (customFields || []).filter(f => f.id !== id);
-    setCustomFields(updated);
     handleChange('customFields', updated);
   };
 
@@ -89,8 +51,7 @@ function PersonalAccordion({
     if (!file) return;
     setPhotoBusy(true);
     try {
-      const { url } = await apiUpload.uploadPhoto(file); // doit renvoyer { url }
-      // garder les deux clés synchro (compat preview)
+      const { url } = await apiUpload.uploadPhoto(file);
       handleChange('photoUrl', url);
       handleChange('photo', url);
     } catch (e) {
@@ -142,7 +103,9 @@ function PersonalAccordion({
                   )}
                 </div>
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Photo de profil</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Photo de profil
+                  </label>
                   <input
                     type="file"
                     accept="image/*"
@@ -189,7 +152,9 @@ function PersonalAccordion({
 
               {/* Emploi recherché */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Emploi recherché</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Emploi recherché
+                </label>
                 <input
                   type="text"
                   value={data?.jobTitle || ''}
@@ -247,10 +212,12 @@ function PersonalAccordion({
                 </div>
               </div>
 
-              {/* Extras */}
+              {/* Date / Lieu de naissance */}
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Date de naissance</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Date de naissance
+                  </label>
                   <input
                     type="date"
                     value={data?.birthDate || ''}
@@ -259,7 +226,9 @@ function PersonalAccordion({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Lieu de naissance</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Lieu de naissance
+                  </label>
                   <input
                     type="text"
                     value={data?.birthPlace || ''}
@@ -269,6 +238,7 @@ function PersonalAccordion({
                 </div>
               </div>
 
+              {/* Permis / Nationalité */}
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Permis</label>
@@ -281,7 +251,9 @@ function PersonalAccordion({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Nationalité</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Nationalité
+                  </label>
                   <input
                     type="text"
                     value={data?.nationality || ''}
@@ -291,10 +263,12 @@ function PersonalAccordion({
                 </div>
               </div>
 
-              {/* Sites */}
+              {/* Site / LinkedIn */}
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Site internet</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Site internet
+                  </label>
                   <input
                     type="url"
                     value={data?.website || ''}
@@ -304,7 +278,9 @@ function PersonalAccordion({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">LinkedIn</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    LinkedIn
+                  </label>
                   <input
                     type="url"
                     value={data?.linkedin || ''}
@@ -318,7 +294,9 @@ function PersonalAccordion({
               {/* Champs personnalisés */}
               <div>
                 <div className="flex justify-between items-center mb-4">
-                  <label className="block text-sm font-medium text-slate-700">Champs personnalisés</label>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Champs personnalisés
+                  </label>
                   <button
                     onClick={addCustomField}
                     className="text-sm bg-primary-600 hover:bg-primary-700 text-white px-3 py-1 rounded transition-colors"

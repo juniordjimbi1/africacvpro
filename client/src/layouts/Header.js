@@ -1,21 +1,23 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export function Header({ user, onLogin, onRegister, onLogout, currentPage }) {
+export function Header({ user, onLogin, onRegister, onLogout, currentPage, hasDraft, onGoEditorSmart }) {
+
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const nav = useMemo(
+    const nav = useMemo(
     () => ([
       { label: 'Accueil', page: 'Accueil' },
       { label: 'Modèles', page: 'Modèles' },
-      { label: 'Tarifs', page: 'Tarifs' },
-      { label: 'Éditeur CV', page: 'Éditeur CV' },
+      { label: 'Offres', page: 'Offres' },
+      { label: hasDraft ? 'Continuer mon CV' : 'Éditeur CV', page: 'Éditeur CV' },
       { label: 'Lettre', page: 'Lettre' },
       { label: 'Tableau de bord', page: 'Tableau de bord' },
     ]),
-    []
+    [hasDraft]
   );
+
 
   const go = (page) => {
     window.dispatchEvent(new CustomEvent('app:navigate', { detail: { page } }));
@@ -140,7 +142,7 @@ export function Header({ user, onLogin, onRegister, onLogout, currentPage }) {
                       Tableau de bord
                     </button>
                     <button
-                      onClick={() => go('Éditeur CV')}
+                      onClick={() => { onGoEditorSmart ? onGoEditorSmart() : go('Éditeur CV'); }}
                       className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50"
                       role="menuitem"
                     >
@@ -191,7 +193,7 @@ export function Header({ user, onLogin, onRegister, onLogout, currentPage }) {
               return (
                 <button
                   key={item.page}
-                  onClick={() => go(item.page)}
+                  onClick={() => { item.page === 'Éditeur CV' && onGoEditorSmart ? onGoEditorSmart() : go(item.page); }}
                   className={[
                     'relative px-3 py-2 rounded-xl text-sm transition-all ring-1',
                     active
@@ -225,7 +227,7 @@ export function Header({ user, onLogin, onRegister, onLogout, currentPage }) {
                   Tableau de bord
                 </button>
                 <button
-                  onClick={() => go('Éditeur CV')}
+                  onClick={() => { onGoEditorSmart ? onGoEditorSmart() : go('Éditeur CV'); }}
                   className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-100"
                 >
                   Éditeur CV

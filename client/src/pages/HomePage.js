@@ -6,18 +6,18 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { StaggerChildren } from '../components/animations/StaggerChildren';
 import { HoverCard } from '../components/animations/HoverCard';
 import { FadeIn } from '../components/animations/FadeIn';
+import { go } from '../utils/nav';
 
 function HeroSection() {
   return (
-    <div className="grid md:grid-cols-2 gap-10 md:gap-12 items-center pt-3 md:pt-4 pb-6 -mt-2 md:-mt-4">
-      <motion.div
-        className="space-y-5 md:space-y-6 -mt-5 md:-mt-10"
+    <div className="grid md:grid-cols-2 gap-12 items-center py-8">
+      <motion.div 
+        className="space-y-6"
         initial={{ opacity: 0, x: -50 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.7, ease: "easeOut" }}
       >
-
-        <div className="space-y-3 md:space-y-4">
+        <div className="space-y-4">
           <motion.h1 
             className="text-4xl md:text-5xl font-bold text-slate-900 leading-tight"
             initial={{ opacity: 0, y: 30 }}
@@ -43,6 +43,13 @@ function HeroSection() {
           transition={{ duration: 0.6, delay: 0.6 }}
         >
           <motion.button 
+            onClick={() => { 
+              // Démarrage propre du flow “Créer mon CV” vers Modèles
+              localStorage.removeItem("africacv_template_id"); 
+              localStorage.removeItem("africacv_offer");
+              sessionStorage.removeItem('africacv_open_offer_on_templates');
+              go("Modèles"); 
+            }}
             className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-lg"
             whileHover={{ 
               scale: 1.05,
@@ -52,7 +59,13 @@ function HeroSection() {
           >
             Créer mon CV
           </motion.button>
+
           <motion.button 
+            onClick={() => { 
+              // Accès direct à la page Modèles
+              sessionStorage.removeItem('africacv_open_offer_on_templates');
+              go("Modèles");
+            }}
             className="border border-slate-300 hover:bg-slate-50 text-slate-700 px-6 py-3 rounded-lg font-semibold transition-colors"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -69,8 +82,14 @@ function HeroSection() {
         >
           <motion.div 
             className="w-2 h-2 bg-success-500 rounded-full"
-            animate={{ scale: [1, 1.2, 1] }}
-            transition={{ duration: 2, repeat: Infinity, repeatType: "reverse" }}
+            animate={{ 
+              scale: [1, 1.2, 1],
+            }}
+            transition={{ 
+              duration: 2, 
+              repeat: Infinity,
+              repeatType: "reverse"
+            }}
           />
           <span>Compatible ATS • Aperçu gratuit • Paiement après validation • WhatsApp</span>
         </motion.div>
@@ -84,13 +103,20 @@ function HeroSection() {
       >
         <motion.div 
           className="aspect-[210/297] w-full max-w-md border-2 border-dashed border-slate-300 rounded-2xl bg-white shadow-xl grid place-items-center relative overflow-hidden"
-          whileHover={{ y: -10, transition: { duration: 0.3 } }}
+          whileHover={{ 
+            y: -10,
+            transition: { duration: 0.3 }
+          }}
         >
           {/* Effet de brillance subtile */}
           <motion.div 
             className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform -skew-x-12"
             animate={{ x: [-100, 300] }}
-            transition={{ duration: 3, repeat: Infinity, repeatDelay: 2 }}
+            transition={{ 
+              duration: 3, 
+              repeat: Infinity,
+              repeatDelay: 2
+            }}
           />
           <span className="text-slate-400 text-sm relative z-10">Aperçu CV A4 - Design professionnel</span>
         </motion.div>
@@ -99,12 +125,11 @@ function HeroSection() {
   );
 }
 
-
 function StepsSection() {
   const steps = [
     { number: "01", title: "Choisissez", desc: "Votre modèle préféré" },
-    { number: "02", title: "Remplissez", desc: "Vos informations" },
-    { number: "03", title: "Optimisez", desc: "Avec notre IA" },
+    { number: "02", title: "Sélectionnez", desc: "L’offre (Auto / IA / Humain)" },
+    { number: "03", title: "Remplissez", desc: "Vos informations" },
     { number: "04", title: "Recevez", desc: "Sur WhatsApp" },
   ];
 
@@ -113,12 +138,10 @@ function StepsSection() {
       {steps.map((step, index) => (
         <HoverCard key={index}>
           <Card className="text-center p-6 relative overflow-hidden group">
-            {/* Effet de fond animé */}
             <motion.div 
               className="absolute inset-0 bg-gradient-to-br from-primary-50 to-transparent opacity-0 group-hover:opacity-100"
               transition={{ duration: 0.3 }}
             />
-            
             <motion.div 
               className="w-12 h-12 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center font-bold text-lg mx-auto mb-4 relative z-10"
               whileHover={{ 
@@ -131,14 +154,12 @@ function StepsSection() {
             >
               {step.number}
             </motion.div>
-            
             <motion.h3 
               className="font-semibold text-slate-900 mb-2 relative z-10"
               whileHover={{ color: "rgb(14, 165, 233)" }}
             >
               {step.title}
             </motion.h3>
-            
             <motion.p 
               className="text-sm text-slate-600 relative z-10"
               whileHover={{ color: "rgb(51, 65, 85)" }}
@@ -152,128 +173,80 @@ function StepsSection() {
   );
 }
 
-function PricingSection() {
-  const plans = [
-    { 
-      name: "Automatique", 
-      price: "5 000 FCFA", 
-      badge: "Économique",
-      features: ["Génération automatique", "1 modèle au choix", "Support de base", "PDF + DOCX"],
-      highlight: false
+// Teaser d'offres (sans prix)
+function OffersTeaserSection() {
+  const items = [
+    {
+      name: "Automatique",
+      badge: "Rapide",
+      desc: "Générez rapidement un CV propre à partir d’un modèle. Idéal pour démarrer en quelques minutes.",
+      highlight: false,
     },
-    { 
-      name: "Optimisé IA", 
-      price: "12 000 FCFA", 
-      badge: "Best-Seller", 
-      features: ["Optimisation IA", "3 modèles au choix", "Support prioritaire", "3 régénérations IA"],
-      highlight: true
+    {
+      name: "Optimisée IA",
+      badge: "Recommandé",
+      desc: "L’IA vous accompagnera par des questions ciblées pour adapter le CV au métier/annonce (bientôt).",
+      highlight: true,
     },
-    { 
-      name: "Expert Humain", 
-      price: "25 000 FCFA", 
-      badge: "Premium", 
-      features: ["Accompagnement expert", "Tous les modèles", "Support 24/7", "Révisions illimitées"],
-      highlight: false
+    {
+      name: "Service Professionnel",
+      badge: "Premium",
+      desc: "Un professionnel améliore votre CV, corrige la forme et le fond. Échanges personnalisés via WhatsApp.",
+      highlight: false,
     },
   ];
 
   return (
     <StaggerChildren className="grid md:grid-cols-3 gap-8 py-8">
-      {plans.map((plan, index) => (
+      {items.map((it, idx) => (
         <motion.div
-          key={index}
+          key={idx}
           whileHover={{ y: -10 }}
           transition={{ type: "spring", stiffness: 300 }}
         >
-          <Card className={`p-6 relative overflow-hidden group h-full ${
-            plan.highlight ? 'ring-2 ring-primary-500 shadow-xl' : ''
-          }`}>
-            
-            {/* Effet de surbrillance pour le best-seller */}
-            {plan.highlight && (
+          <Card className={`p-6 relative overflow-hidden group h-full ${it.highlight ? 'ring-2 ring-primary-500 shadow-xl' : ''}`}>
+            {it.highlight && (
               <motion.div
                 className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary-500 to-primary-300"
                 initial={{ scaleX: 0 }}
                 animate={{ scaleX: 1 }}
-                transition={{ duration: 0.5, delay: index * 0.1 + 0.5 }}
+                transition={{ duration: 0.5, delay: 0.4 }}
               />
             )}
-            
-            {plan.highlight && (
-              <motion.div
-                className="absolute -top-3 left-1/2 transform -translate-x-1/2"
-                initial={{ y: -20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 500, delay: 0.3 }}
-              >
+
+            {it.highlight && (
+              <div className="mb-2">
                 <span className="bg-primary-500 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-lg">
-                  POPULAIRE
+                  RECOMMANDÉ
                 </span>
-              </motion.div>
+              </div>
             )}
-            
-            <motion.div 
-              className="text-center mb-6"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-            >
-              <h3 className="text-xl font-bold text-slate-900 mb-2">{plan.name}</h3>
-              <motion.div 
-                className="text-3xl font-bold text-slate-900 mb-4"
-                whileHover={{ scale: 1.05 }}
-              >
-                {plan.price}
-              </motion.div>
-              <span className={`text-sm px-3 py-1 rounded-full ${
-                plan.highlight ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-700'
+
+            <div className="text-center mb-4">
+              <h3 className="text-xl font-bold text-slate-900 mb-2">{it.name}</h3>
+              <span className={`text-xs px-3 py-1 rounded-full ${
+                it.highlight ? 'bg-primary-100 text-primary-700' : 'bg-slate-100 text-slate-700'
               }`}>
-                {plan.badge}
+                {it.badge}
               </span>
-            </motion.div>
-            
-            <ul className="space-y-3 mb-6">
-              {plan.features.map((feature, idx) => (
-                <motion.li 
-                  key={idx} 
-                  className="flex items-center gap-3 text-sm text-slate-700"
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.4, delay: index * 0.1 + idx * 0.05 + 0.3 }}
-                >
-                  <motion.div 
-                    className="w-4 h-4 bg-success-500 rounded-full flex items-center justify-center"
-                    whileHover={{ scale: 1.2, rotate: 180 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <div className="w-1.5 h-1.5 bg-white rounded" />
-                  </motion.div>
-                  {feature}
-                </motion.li>
-              ))}
-            </ul>
-            
+            </div>
+
+            <p className="text-sm text-slate-700 leading-relaxed">{it.desc}</p>
+
             <motion.button 
-              className={`w-full py-3 rounded-lg font-semibold transition-colors relative overflow-hidden ${
-                plan.highlight 
+              onClick={() => go('Offres')}
+              className={`w-full mt-6 py-3 rounded-lg font-semibold transition-colors relative overflow-hidden ${
+                it.highlight 
                   ? 'bg-primary-600 hover:bg-primary-700 text-white shadow-lg' 
                   : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
               }`}
               whileHover={{ 
                 scale: 1.02,
-                boxShadow: plan.highlight ? "0 10px 25px -5px rgba(14, 165, 233, 0.4)" : "0 5px 15px -3px rgba(0, 0, 0, 0.1)"
+                boxShadow: it.highlight ? "0 10px 25px -5px rgba(14, 165, 233, 0.4)" : "0 5px 15px -3px rgba(0, 0, 0, 0.1)"
               }}
               whileTap={{ scale: 0.98 }}
             >
-              <span className="relative z-10">Choisir cette offre</span>
-              
-              {/* Effet de vague au survol */}
-              <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12"
-                initial={{ x: -100 }}
-                whileHover={{ x: 400 }}
-                transition={{ duration: 0.8 }}
-              />
+              Découvrir l’offre
             </motion.button>
           </Card>
         </motion.div>
@@ -305,7 +278,16 @@ export function HomePage() {
           <StaggerChildren className="grid md:grid-cols-3 gap-6">
             {[1, 2, 3, 4, 5, 6].map((item) => (
               <HoverCard key={item}>
-                <Card>
+                <Card
+                  onClick={() => {
+                    // depuis la Home : pré-sélection du modèle, on bascule vers Modèles
+                    const tplId = `template-${item}`;
+                    localStorage.setItem('africacv_template_id', tplId);
+                    // L’offre n’est pas encore connue → elle sera demandée sur Modèles
+                    go('Modèles');
+                  }}
+                  className="cursor-pointer"
+                >
                   <motion.div 
                     className="aspect-[210/297] border-2 border-dashed border-slate-300 rounded-lg bg-white mb-4 overflow-hidden"
                     whileHover={{ scale: 1.02 }}
@@ -330,6 +312,22 @@ export function HomePage() {
                       <Skeleton w={80} h={32} />
                     </div>
                   </div>
+
+                  {/* Bouton explicite sous la carte */}
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const tplId = `template-${item}`;
+                        localStorage.setItem('africacv_template_id', tplId);
+                        go('Modèles');
+                      }}
+                      className="w-full rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-semibold py-2.5 transition-colors"
+                    >
+                      Choisir ce modèle
+                    </button>
+                  </div>
                 </Card>
               </HoverCard>
             ))}
@@ -340,7 +338,7 @@ export function HomePage() {
       <FadeIn delay={0.3}>
         <section>
           <SectionTitle title="Nos offres adaptées à vos besoins" />
-          <PricingSection />
+          <OffersTeaserSection />
         </section>
       </FadeIn>
 

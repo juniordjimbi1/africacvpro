@@ -7,7 +7,7 @@ import { Footer } from './layouts/Footer';
 
 import { HomePage } from './pages/HomePage';
 import { TemplatesPage } from './pages/TemplatesPage';
-import { PricingPage } from './pages/PricingPage';
+ import { OffersPage } from './pages/OffersPage';
 import { LoginForm } from './components/auth/LoginForm';
 import { RegisterForm } from './components/auth/RegisterForm';
 import { EditorPage } from './pages/EditorPage';
@@ -31,12 +31,15 @@ function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
 
   useEffect(() => {
     if (isOpen && user) {
-      const t = setTimeout(onClose, 500);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => {
+        onClose();
+      }, 300);
+      return () => clearTimeout(timer);
     }
   }, [user, isOpen, onClose]);
 
   if (!isOpen) return null;
+
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -65,6 +68,34 @@ function AppContent() {
   const [authModal, setAuthModal] = useState({ isOpen: false, mode: 'login' });
   const [pendingStart, setPendingStart] = useState(null);
   const { user, logout } = useAuth();
+
+  const hasDraftResume = !!cvStorage.getResumeId();
+
+  const handleGoEditorSmart = () => {
+    const resumeId = cvStorage.getResumeId();
+    if (resumeId) {
+      // Brouillon existant → on ouvre directement l’éditeur
+      localStorage.setItem('africacv_return_page', currentPage);
+      setCurrentPage('Éditeur CV');
+    } else {
+      // Pas de brouillon → on repart sur le flow standard Modèles → Offres → Éditeur
+      localStorage.removeItem('africacv_template_id');
+      localStorage.removeItem('africacv_offer');
+      sessionStorage.removeItem('africacv_open_offer_on_templates');
+      setCurrentPage('Modèles');
+    }
+  };
+
+
+   useEffect(() => {
+    const handler = (e) => {
+      if (e && e.detail && e.detail.page) {
+        setCurrentPage(e.detail.page);
+      }
+    };
+    window.addEventListener('app:navigate', handler);
+    return () => window.removeEventListener('app:navigate', handler);
+  }, []);
 
   const openAuthModal = (mode = 'login') => setAuthModal({ isOpen: true, mode });
   const closeAuthModal = () => setAuthModal({ isOpen: false, mode: 'login' });
@@ -139,9 +170,9 @@ function AppContent() {
       case 'Accueil':
         return <HomePage />;
       case 'Modèles':
-        return <TemplatesPage onStart={(tplId) => handleStartService('AUTO', tplId || 'classic')} />;
-      case 'Tarifs':
-        return <PricingPage onStart={(service) => handleStartService(service, 'classic')} />;
+        return <TemplatesPage onStart={(tplId) => handleStartService('AUTO', tplId || 'classic')}  />;
+      case 'Offres':
+        return <OffersPage onStart={(service) => handleStartService(service, 'classic')} />;
       case 'Comment ça marche':
         return <HowItWorksPage onStart={() => handleStartService('AUTO', 'classic')} />;
       case 'Éditeur CV':
@@ -175,7 +206,10 @@ function AppContent() {
         onRegister={() => openAuthModal('register')}
         onLogout={logout}
         currentPage={currentPage}
+        hasDraft={hasDraftResume}
+        onGoEditorSmart={handleGoEditorSmart}
       />
+
 
       {/* Toolbar retirée */}
       {/* <Toolbar currentPage={currentPage} onPageChange={setCurrentPage} /> */}
